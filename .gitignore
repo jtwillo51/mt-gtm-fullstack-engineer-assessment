@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+
+# next
+/.next
+/out
+next-env.d.ts
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# env
+.env
+.env.local
+.env*.local
+
+# supabase
+/supabase/.branches
+/supabase/.temp
+
+# vitest
+/coverage
+
+# Local-only working directory (not part of the deliverable).
+/.interviewer
+
+# TypeScript build info
+tsconfig.tsbuildinfo
