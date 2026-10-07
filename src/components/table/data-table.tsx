@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import type { ListViewConfig, RenderType } from '@/lib/config/types'
@@ -11,11 +12,13 @@ import { Badge } from '@/components/ui/badge'
 import { CompanyTile } from '@/components/ui/company-tile'
 import { InitialsAvatar } from '@/components/ui/initials-avatar'
 import { badgeVariantForStatus } from '@/lib/config/render-helpers'
+import { formatDateOnly } from '@/lib/utils'
 
 /**
  * Config-driven list table. Renders the config's default-visible columns, a
  * search box, and pagination — all URL-driven so the Server Component page
- * re-fetches on navigation. Rows link to `${linkPath}/${id}`.
+ * re-fetches on navigation. Rows link to `${linkPath}/${id}`: the whole row is
+ * clickable, and the first column is a real <Link> for keyboard/screen readers.
  *
  * Cell rendering is keyed off each column's string `renderType` (never a
  * function prop — this component is the client side of the Server→Client
@@ -64,12 +67,12 @@ export function DataTable<T extends { id: string }>({
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search…"
+          placeholder={config.searchPlaceholder ?? 'Search…'}
           className="pl-9"
         />
       </form>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -92,17 +95,37 @@ export function DataTable<T extends { id: string }>({
                 <tr
                   key={row.id}
                   onClick={() => router.push(`${linkPath}/${row.id}`)}
-                  className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                  className="cursor-pointer border-b border-slate-100 last:border-0 even:bg-slate-50 hover:bg-slate-100"
                 >
-                  {columns.map((col) => (
-                    <td key={col.field} className="px-4 py-3 text-slate-700">
-                      {renderCell(
-                        (row as Record<string, unknown>)[col.field],
-                        col.renderType,
-                        row as Record<string, unknown>
-                      )}
-                    </td>
-                  ))}
+                  {columns.map((col, i) => {
+                    const cell = renderCell(
+                      (row as Record<string, unknown>)[col.field],
+                      col.renderType,
+                      row as Record<string, unknown>
+                    )
+                    // The row click is mouse-only, so the first column (the
+                    // record's name) is also a real link: focusable, Enter
+                    // opens it, screen readers announce it. Skipped for
+                    // url/email cells, which are already links (no nested <a>).
+                    const linkable =
+                      i === 0 && col.renderType !== 'url' && col.renderType !== 'email'
+                    return (
+                      <td key={col.field} className="px-4 py-3 text-slate-700">
+                        {linkable ? (
+                          <Link
+                            href={`${linkPath}/${row.id}`}
+                            // The row's onClick would navigate a second time.
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                          >
+                            {cell}
+                          </Link>
+                        ) : (
+                          cell
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))
             )}
@@ -165,12 +188,30 @@ function renderCell(
     )
   }
 
-  if (value === null || value === undefined || value === '') {
+  if (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    (Array.isArray(value) && value.length === 0)
+  ) {
     return <span className="text-slate-300">—</span>
+  }
+  if (renderType === 'badge-list' && Array.isArray(value)) {
+    return (
+      <span className="flex flex-wrap gap-1">
+        {value.map((v) => (
+          <Badge key={String(v)} variant="subtle">
+            {String(v)}
+          </Badge>
+        ))}
+      </span>
+    )
   }
   const str = String(value)
 
   switch (renderType) {
+    case 'date':
+      return <span className="whitespace-nowrap">{formatDateOnly(str)}</span>
     case 'badge':
       return <Badge variant={badgeVariantForStatus(str)}>{str}</Badge>
     case 'url':

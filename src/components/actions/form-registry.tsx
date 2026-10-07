@@ -1,14 +1,14 @@
 'use client'
 
 import React from 'react'
-import { Building2, Users, type LucideIcon } from 'lucide-react'
+import { Building2, Megaphone, Users, type LucideIcon } from 'lucide-react'
 
 /**
  * Lazy-loaded form registry. NewButton / EditButton consult this to render the
  * right form and gate by role. To add a model: add a FormType member + an entry
  * here — the buttons pick it up automatically.
  */
-export type FormType = 'company' | 'contact'
+export type FormType = 'company' | 'contact' | 'campaign'
 
 export type FormRole = 'editor' | 'admin'
 
@@ -37,6 +37,12 @@ const ContactFormLazy = React.lazy(() =>
   }))
 )
 
+const CampaignFormLazy = React.lazy(() =>
+  import('@/components/forms/campaign-form').then((m) => ({
+    default: m.CampaignForm as unknown as React.ComponentType<Record<string, unknown>>,
+  }))
+)
+
 export const formRegistry: Record<FormType, FormRegistryEntry> = {
   company: {
     Component: CompanyFormLazy,
@@ -52,5 +58,12 @@ export const formRegistry: Record<FormType, FormRegistryEntry> = {
     role: 'editor',
     buildCreateProps: (defaults) => ({ defaultCompanyId: defaults.defaultCompanyId }),
     buildEditProps: (recordId) => ({ contactId: recordId }),
+  },
+  campaign: {
+    Component: CampaignFormLazy,
+    icon: Megaphone,
+    label: 'campaign',
+    role: 'editor',
+    buildEditProps: (recordId) => ({ campaignId: recordId }),
   },
 }

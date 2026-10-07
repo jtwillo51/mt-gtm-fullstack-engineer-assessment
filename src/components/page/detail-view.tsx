@@ -1,7 +1,7 @@
 import type { FieldConfig, RenderType, SectionConfig } from '@/lib/config/types'
 import { Badge } from '@/components/ui/badge'
 import { badgeVariantForStatus } from '@/lib/config/render-helpers'
-import { cn } from '@/lib/utils'
+import { cn, formatDateOnly } from '@/lib/utils'
 
 /**
  * Read-only detail renderer, config-driven. Shows fields with
@@ -40,8 +40,12 @@ export function DetailView<T extends object>({
             >
               {sectionFields.map((field) => (
                 <div key={field.name}>
-                  <dt className="text-xs text-slate-400">{field.label}</dt>
-                  <dd className="mt-1 text-sm text-slate-800">
+                  <dt
+                    className={cn('text-xs text-slate-400', section.hideFieldLabels && 'sr-only')}
+                  >
+                    {field.label}
+                  </dt>
+                  <dd className={cn('text-sm text-slate-800', !section.hideFieldLabels && 'mt-1')}>
                     {renderValue(row[field.name], field.renderType)}
                   </dd>
                 </div>
@@ -55,11 +59,31 @@ export function DetailView<T extends object>({
 }
 
 function renderValue(value: unknown, renderType?: RenderType) {
-  if (value === null || value === undefined || value === '') {
+  if (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    (Array.isArray(value) && value.length === 0)
+  ) {
     return <span className="text-slate-300">—</span>
+  }
+  if (renderType === 'badge-list' && Array.isArray(value)) {
+    return (
+      <span className="flex flex-wrap gap-1.5">
+        {value.map((v) => (
+          <Badge key={String(v)} variant="subtle">
+            {String(v)}
+          </Badge>
+        ))}
+      </span>
+    )
   }
   const str = String(value)
   switch (renderType) {
+    case 'multiline':
+      return <p className="whitespace-pre-wrap leading-relaxed">{str}</p>
+    case 'date':
+      return <span>{formatDateOnly(str)}</span>
     case 'badge':
       return <Badge variant={badgeVariantForStatus(str)}>{str}</Badge>
     case 'url':

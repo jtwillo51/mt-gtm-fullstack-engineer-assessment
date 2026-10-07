@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, Users, LogOut, type LucideIcon } from 'lucide-react'
+import { Building2, Users, Megaphone, LogOut, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { InitialsAvatar } from '@/components/ui/initials-avatar'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/companies', label: 'Companies', icon: Building2 },
   { href: '/contacts', label: 'Contacts', icon: Users },
+  { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
 ]
 
 export function Sidebar({
