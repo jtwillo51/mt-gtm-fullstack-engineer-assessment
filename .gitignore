@@ -30,3 +30,6 @@ next-env.d.ts
 
 # TypeScript build info
 tsconfig.tsbuildinfo
+
+# eslint --cache (format-file hook)
+.eslintcache
