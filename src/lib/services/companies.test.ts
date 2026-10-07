@@ -80,6 +80,12 @@ describe('companies service', () => {
     expect(result.data.every((c) => c.name.includes('Zeta Searchable'))).toBe(true)
   })
 
+  it('search with a comma or parentheses matches literally instead of throwing', async () => {
+    await createCompany({ name: 'Glimmer Studio (Bayshore, East)' }, editorCtx)
+    const result = await listCompanies({ search: 'Studio (Bayshore, East)' }, editorCtx)
+    expect(result.data.map((c) => c.name)).toEqual(['Glimmer Studio (Bayshore, East)'])
+  })
+
   it('update changes fields and re-stamps updated_by', async () => {
     const created = await createCompany({ name: 'Before' }, editorCtx)
     expect(created.success).toBe(true)

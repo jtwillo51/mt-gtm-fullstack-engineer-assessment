@@ -8,6 +8,10 @@ export const queryKeys = {
     all: ['contacts'] as const,
     detail: (id: string) => ['contacts', id] as const,
   },
+  campaigns: {
+    all: ['campaigns'] as const,
+    detail: (id: string) => ['campaigns', id] as const,
+  },
 } as const
 
 export type ModelName = keyof typeof queryKeys

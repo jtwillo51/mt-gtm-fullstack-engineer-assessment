@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Fails a PR that is behind main or can't merge cleanly. Pair with the
+  # "Require branches to be up to date before merging" branch-protection rule.
+  branch-hygiene:
+    name: Branch is up to date with main and merges cleanly
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the PR head itself, not GitHub's synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Fetch the base branch
+        run: git fetch --no-tags origin "${{ github.base_ref }}"
+
+      - name: Branch contains the latest main
+        run: |
+          if ! git merge-base --is-ancestor "origin/${{ github.base_ref }}" HEAD; then
+            echo "::error::This branch is behind ${{ github.base_ref }}. Merge or rebase the latest ${{ github.base_ref }} into it."
+            exit 1
+          fi
+
+      - name: Merges into main without conflicts
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@example.invalid"
+          if ! git merge --no-commit --no-ff "origin/${{ github.base_ref }}"; then
+            echo "::error::Merge conflicts with ${{ github.base_ref }}:"
+            git diff --name-only --diff-filter=U
+            git merge --abort
+            exit 1
+          fi
+          git merge --abort || true
+
+      - name: No leftover conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>)( |$)|^=======$' -- . ':!*.md'; then
+            echo "::error::Conflict markers found in tracked files."
+            exit 1
+          fi
+
+  quality:
+    name: Format, lint, build, unit tests, test coverage rule
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # check:tests diffs against the base branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: New features have tests
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          node scripts/check-tests.mjs --base "origin/${{ github.base_ref }}"
+
+  integration:
+    name: Integration tests (local Supabase)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Supabase CLI is a pinned devDependency (same version as local dev),
+      # so `npx supabase` needs no separate setup action.
+      - run: npm ci
+
+      - name: Start Supabase (applies migrations + seed)
+        # Skip services the tests never touch to keep the job fast.
+        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,realtime,mailpit,supavisor
+
+      - name: Write .env.local from the running stack
+        run: |
+          eval "$(npx supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_DB_URL=$DB_URL"
+          } > .env.local
+
+      - name: Generated DB types match the migrations
+        run: |
+          npm run db:types
+          if ! git diff --exit-code -- src/types/database.generated.ts; then
+            echo "::error::src/types/database.generated.ts is stale. Run \`npm run db:types\` and commit the result."
+            exit 1
+          fi
+
+      - name: Integration tests (incl. DB convention checks)
+        run: npm run test:integration
+
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop --no-backup

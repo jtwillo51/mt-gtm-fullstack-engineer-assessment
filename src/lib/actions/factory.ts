@@ -1,13 +1,11 @@
 import type { ActionResult, ServiceContext } from '@/lib/services/base'
 import { getErrorMessage } from '@/lib/services/base'
-
-/** Minimal structural shape so we don't depend on Zod's generic ordering. */
-interface Parser<Out> {
-  parse: (input: unknown) => Out
-}
+import { validate, type SafeParser } from './validate'
 
 /**
  * Reduces CRUD action boilerplate: Zod validation → service call → error wrap.
+ * Invalid input returns the first issue's message (see validate.ts), never a
+ * raw ZodError.
  * Cache invalidation is deliberately client-side (useMutationSuccess +
  * router.refresh()), so actions do not call revalidatePath.
  *
@@ -17,8 +15,8 @@ interface Parser<Out> {
 export function createCRUDActions<T, CreateInput, UpdateInput>(config: {
   serviceName: string
   schemas: {
-    create: Parser<CreateInput>
-    update: Parser<UpdateInput>
+    create: SafeParser<CreateInput>
+    update: SafeParser<UpdateInput>
   }
   service: {
     create: (input: CreateInput, ctx?: ServiceContext) => Promise<ActionResult<T>>
@@ -29,8 +27,9 @@ export function createCRUDActions<T, CreateInput, UpdateInput>(config: {
   return {
     async create(input: CreateInput): Promise<ActionResult<T>> {
       try {
-        const parsed = config.schemas.create.parse(input)
-        return await config.service.create(parsed)
+        const v = validate(config.schemas.create, input)
+        if (!v.ok) return v.error
+        return await config.service.create(v.data)
       } catch (error) {
         return {
           success: false,
@@ -40,8 +39,9 @@ export function createCRUDActions<T, CreateInput, UpdateInput>(config: {
     },
     async update(id: string, input: UpdateInput): Promise<ActionResult<T>> {
       try {
-        const parsed = config.schemas.update.parse(input)
-        return await config.service.update(id, parsed)
+        const v = validate(config.schemas.update, input)
+        if (!v.ok) return v.error
+        return await config.service.update(id, v.data)
       } catch (error) {
         return {
           success: false,

@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/types/database.generated'
+
+/** The RLS-scoped client, typed against the generated schema (`npm run db:types`). */
+export type DbClient = SupabaseClient<Database>
 
 /**
  * SERVICE LAYER CONVENTIONS
@@ -17,7 +21,7 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 export interface ServiceContext {
-  client: SupabaseClient
+  client: DbClient
   userId: string
 }
 
@@ -43,7 +47,7 @@ export interface PaginatedResult<T> {
 }
 
 /** Resolve the RLS-scoped client, or reuse the one on the context. */
-export async function getClient(ctx?: ServiceContext): Promise<SupabaseClient> {
+export async function getClient(ctx?: ServiceContext): Promise<DbClient> {
   return ctx?.client ?? (await createClient())
 }
 
@@ -69,6 +73,17 @@ export function getErrorMessage(error: unknown, fallback: string): string {
     return String((error as { message: unknown }).message)
   }
   return fallback
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * True for a well-formed UUID. Ids arrive from URLs (`/campaigns/[id]`), and
+ * Postgres rejects a malformed one with an error ("invalid input syntax for
+ * type uuid") — get* services check first so a bad link is a 404, not a crash.
+ */
+export function isUuid(value: string): boolean {
+  return UUID.test(value)
 }
 
 /** Clamp a page size to a sane range. */

@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import type { Role } from '@/lib/auth'
 import type { ServiceContext } from '@/lib/services/base'
+import type { Database } from '@/types/database.generated'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -16,8 +17,8 @@ export interface TestUser {
 }
 
 /** RLS-bypassing admin client for setup / assertions. */
-export function getAdminClientForTests(): SupabaseClient {
-  return createClient(url, serviceKey, {
+export function getAdminClientForTests(): SupabaseClient<Database> {
+  return createClient<Database>(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 }
@@ -67,7 +68,7 @@ export async function createIsolatedTestUsers(): Promise<{
 
 /** Sign in as the user and return an RLS-scoped ServiceContext. */
 export async function createTestUserContext(user: TestUser): Promise<ServiceContext> {
-  const client = createClient(url, anonKey, {
+  const client = createClient<Database>(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const { error } = await client.auth.signInWithPassword({

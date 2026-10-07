@@ -6,12 +6,23 @@
  */
 
 export type FieldType =
-  'text' | 'textarea' | 'url' | 'email' | 'select' | 'number' | 'datetime-local'
+  | 'text'
+  | 'textarea'
+  | 'url'
+  | 'email'
+  | 'select' // single choice from `options`
+  | 'multiselect' // any number of `options`; value is string[]
+  | 'number'
+  | 'date'
+  | 'datetime-local'
 
 export type RenderType =
   | 'text'
+  | 'multiline' // long text, line breaks preserved
   | 'url'
   | 'badge'
+  | 'badge-list' // string[] → one badge each
+  | 'date' // 'YYYY-MM-DD', shown without timezone shifting
   | 'datetime'
   | 'email'
   | 'company-name' // CompanyTile + name
@@ -25,6 +36,8 @@ export interface FieldConfig {
   section: string
   required?: boolean
   placeholder?: string
+  /** Choices for `select` / `multiselect` fields. */
+  options?: readonly string[]
   renderType?: RenderType
   /** Hide from the create/edit form (default: shown). */
   showInForm?: boolean
@@ -35,6 +48,9 @@ export interface FieldConfig {
 export interface SectionConfig {
   id: string
   columns?: 1 | 2
+  /** Detail view: omit per-field labels when the section heading already says
+   *  what the value is (e.g. a lone "Purpose" field). */
+  hideFieldLabels?: boolean
 }
 
 export interface ListColumnConfig {
@@ -48,6 +64,9 @@ export interface ListColumnConfig {
 export interface ListViewConfig {
   columns: ListColumnConfig[]
   defaultSort: { field: string; asc: boolean }
-  /** Columns the list search box matches against (documentation only here). */
+  /** Columns the list service's search matches. Every whitespace-separated term
+   *  must appear in at least one of them (see services/search.ts). */
   searchFields?: string[]
+  /** Search box placeholder; defaults to "Search…". Say what it searches. */
+  searchPlaceholder?: string
 }

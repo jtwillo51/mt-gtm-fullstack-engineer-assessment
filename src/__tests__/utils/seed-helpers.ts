@@ -73,10 +73,37 @@ export async function createTestContactCompany(
   return data as { id: string; is_primary: boolean }
 }
 
+export async function createTestCampaign(
+  ownerId: string,
+  overrides: Record<string, unknown> = {}
+): Promise<{ id: string; name: string }> {
+  const admin = getAdminClientForTests()
+  const { data, error } = await admin
+    .from('campaigns')
+    .insert({
+      name: `Test Campaign ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'Email',
+      audience: 'External',
+      owner_id: ownerId,
+      created_by: ownerId,
+      updated_by: ownerId,
+      ...overrides,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data as { id: string; name: string }
+}
+
 /** Hard-delete all rows owned by a test user, children (join) first. */
 export async function cleanupTestDataByOwner(ownerId: string): Promise<void> {
   const admin = getAdminClientForTests()
+  // Batch 1: FK children — join / child tables.
+  await admin.from('campaign_members').delete().eq('owner_id', ownerId)
+  await admin.from('campaign_artifacts').delete().eq('owner_id', ownerId)
   await admin.from('contact_companies').delete().eq('owner_id', ownerId)
+  // Batch 2: parents.
+  await admin.from('campaigns').delete().eq('owner_id', ownerId)
   await admin.from('contacts').delete().eq('owner_id', ownerId)
   await admin.from('companies').delete().eq('owner_id', ownerId)
 }

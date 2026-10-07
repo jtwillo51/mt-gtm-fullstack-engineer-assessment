@@ -1,4 +1,5 @@
 .next
 node_modules
-src/types/database.generated.ts
 package-lock.json
+# Local agent/tooling state (not part of the repo)
+.omc

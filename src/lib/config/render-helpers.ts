@@ -11,6 +11,16 @@ export const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
   Completed: 'muted',
   Draft: 'subtle',
   Primary: 'subtle',
+  // Campaign audience
+  Internal: 'info',
+  External: 'warning',
+  // Campaign member funnel stages
+  Targeted: 'default',
+  Sent: 'subtle',
+  Opened: 'info',
+  Responded: 'warning',
+  Converted: 'success',
+  Bounced: 'muted',
 }
 
 export function badgeVariantForStatus(value: string): BadgeVariant {
