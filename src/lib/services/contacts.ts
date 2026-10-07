@@ -8,6 +8,8 @@ import {
   getErrorMessage,
   getUserId,
 } from './base'
+import { applySearch } from './search'
+import { contactListConfig } from '@/lib/config/models/contact-config'
 import type { ContactFormInput, ContactUpdateInput } from '@/lib/schemas'
 
 export interface Contact {
@@ -53,9 +55,7 @@ export async function listContacts(
 
   let query = client.from('v_contacts').select('*', { count: 'exact' }).is('deleted_at', null)
 
-  if (options.search) {
-    query = query.or(`first_name.ilike.%${options.search}%,last_name.ilike.%${options.search}%`)
-  }
+  query = applySearch(query, contactListConfig.searchFields ?? [], options.search)
 
   query = query
     .order(options.orderBy ?? 'first_name', { ascending: options.orderAsc ?? true })

@@ -8,6 +8,8 @@ import {
   getErrorMessage,
   getUserId,
 } from './base'
+import { applySearch } from './search'
+import { companyListConfig } from '@/lib/config/models/company-config'
 import type { CompanyFormInput, CompanyUpdateInput } from '@/lib/schemas'
 
 export interface Company {
@@ -50,9 +52,7 @@ export async function listCompanies(
 
   let query = client.from('v_companies').select('*', { count: 'exact' }).is('deleted_at', null)
 
-  if (options.search) {
-    query = query.ilike('name', `%${options.search}%`)
-  }
+  query = applySearch(query, companyListConfig.searchFields ?? [], options.search)
 
   query = query
     .order(options.orderBy ?? 'name', { ascending: options.orderAsc ?? true })

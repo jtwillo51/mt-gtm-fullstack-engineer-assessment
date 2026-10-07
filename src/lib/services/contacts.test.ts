@@ -72,6 +72,23 @@ describe('contacts service', () => {
     expect(result.data.some((c) => c.first_name === 'Zelda')).toBe(true)
   })
 
+  // Regression: search text used to be spliced raw into a PostgREST or()
+  // filter, so a comma 400'd ("failed to parse logic tree") and crashed the page.
+  it.each(['Smith, John', 'a)b(', 'quote"d', 'back\\slash', 'x%,id.not.is.null'])(
+    'search with reserved characters %j does not throw and matches literally',
+    async (search) => {
+      const result = await listContacts({ search }, editorCtx)
+      expect(result.data).toEqual([])
+    }
+  )
+
+  it('search treats % and _ literally, not as wildcards', async () => {
+    await createContact({ first_name: 'Pct', last_name: '100% Real' }, editorCtx)
+    await createContact({ first_name: 'Pct', last_name: '1000 Real' }, editorCtx)
+    const result = await listContacts({ search: '100%' }, editorCtx)
+    expect(result.data.map((c) => c.last_name)).toEqual(['100% Real'])
+  })
+
   it('update changes fields', async () => {
     const created = await createContact({ first_name: 'Before' }, editorCtx)
     if (!created.success) return

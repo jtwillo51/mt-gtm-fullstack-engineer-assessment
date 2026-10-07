@@ -6,6 +6,7 @@ import {
   getErrorMessage,
   getUserId,
 } from './base'
+import type { TablesUpdate } from '@/types/database.generated'
 import { createContact, type Contact } from './contacts'
 import type { ContactFormInput } from '@/lib/schemas'
 
@@ -96,7 +97,7 @@ export async function attachContactToCompany(
       .maybeSingle()
 
     if (existing) {
-      const payload: Record<string, unknown> = { updated_by: userId }
+      const payload: TablesUpdate<'contact_companies'> = { updated_by: userId }
       if (existing.deleted_at) {
         payload.deleted_at = null
         payload.deleted_by = null

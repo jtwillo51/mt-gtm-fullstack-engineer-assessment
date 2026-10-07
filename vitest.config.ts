@@ -18,6 +18,11 @@ const DB_BACKED_TESTS = [
   'src/lib/services/companies.test.ts',
   'src/lib/services/contacts.test.ts',
   'src/lib/services/contact-companies.test.ts',
+  'src/lib/services/campaigns.test.ts',
+  'src/lib/services/campaign-members.test.ts',
+  'src/lib/services/campaign-shape.test.ts',
+  'src/lib/services/campaign-artifacts.test.ts',
+  'src/lib/services/db-conventions.test.ts',
 ]
 
 const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) }
@@ -32,8 +37,9 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'jsdom',
-          include: ['src/**/*.test.{ts,tsx}'],
+          include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
           exclude: DB_BACKED_TESTS,
+          setupFiles: ['./src/__tests__/setup-unit.ts'],
           env: {
             // Unroutable on purpose — see header.
             NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:1',
