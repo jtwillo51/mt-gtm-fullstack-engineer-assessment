@@ -177,3 +177,93 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Demo marketing campaigns. Members are pulled from the generated book by
+-- industry; outcomes cycle through a fixed pattern so each campaign shows a
+-- realistic funnel (more sent than opened, more opened than converted).
+-- The editor owns two of them, so signing in as editor@ shows campaigns you
+-- can manage (owner-or-admin RLS) next to ones that are read-only for you.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  admin_app  UUID := '00000000-0000-0000-0000-0000000000b1';
+  editor_app UUID := '00000000-0000-0000-0000-0000000000b2';
+  july_id   UUID;
+  medspa_id UUID;
+  mailer_id UUID;
+  spring_id UUID;
+BEGIN
+  INSERT INTO public.campaigns
+    (name, type, status, audience, occasion, purpose, target_industries, start_date, end_date,
+     owner_id, created_by, updated_by)
+  VALUES
+    ('4th of July Booking Boost', 'Email', 'Completed', 'External', '4th of July Sale',
+     'Win new salons and barbershops by offering two free months of online booking ahead of the holiday rush. Success = a booked demo.',
+     ARRAY['Salon', 'Barbershop'], '2026-06-20', '2026-07-05', admin_app, admin_app, admin_app)
+  RETURNING id INTO july_id;
+
+  INSERT INTO public.campaigns
+    (name, type, status, audience, occasion, purpose, target_industries, start_date, end_date,
+     owner_id, created_by, updated_by)
+  VALUES
+    ('Marketing Suite Add-On for Med Spas', 'Email', 'Active', 'Internal', NULL,
+     'Upsell existing med spa and spa customers onto the Marketing Suite add-on (automated rebooking reminders + review requests). Success = add-on activated.',
+     ARRAY['Med Spa', 'Spa'], '2026-09-15', '2026-10-31', editor_app, editor_app, editor_app)
+  RETURNING id INTO medspa_id;
+
+  INSERT INTO public.campaigns
+    (name, type, status, audience, occasion, purpose, target_industries, start_date, end_date,
+     owner_id, created_by, updated_by)
+  VALUES
+    ('Holiday Gift Card Mailer', 'Direct Mail', 'Draft', 'External', 'Holiday Season',
+     'Postcard to nail, lash and wellness studios showing how digital gift cards drive holiday revenue, with a QR code to sign up.',
+     ARRAY['Nail Salon', 'Lash & Brow', 'Wellness'], '2026-11-15', '2026-12-20', editor_app, editor_app, editor_app)
+  RETURNING id INTO mailer_id;
+
+  INSERT INTO public.campaigns
+    (name, type, status, audience, occasion, purpose, target_industries, start_date, end_date,
+     owner_id, created_by, updated_by)
+  VALUES
+    ('Spring Wellness Text Reminder', 'SMS', 'Completed', 'Internal', 'Spring Reset',
+     'Remind existing massage and wellness customers to turn on SMS appointment reminders before the spring season.',
+     ARRAY['Massage', 'Wellness'], '2026-03-01', '2026-03-15', admin_app, admin_app, admin_app)
+  RETURNING id INTO spring_id;
+
+  -- 4th of July: company-level members.
+  INSERT INTO public.campaign_members (campaign_id, company_id, status, owner_id, created_by, updated_by)
+  SELECT july_id, co.id,
+    (ARRAY['Sent', 'Opened', 'Opened', 'Responded', 'Converted', 'Sent', 'Bounced', 'Opened', 'Converted', 'Sent'])
+      [((row_number() OVER (ORDER BY co.name)) - 1) % 10 + 1],
+    admin_app, admin_app, admin_app
+  FROM public.companies co
+  WHERE co.industry IN ('Salon', 'Barbershop') AND co.deleted_at IS NULL;
+
+  -- Med spa upsell (in flight): everyone whose primary company is a med spa / spa.
+  INSERT INTO public.campaign_members (campaign_id, company_id, contact_id, status, owner_id, created_by, updated_by)
+  SELECT medspa_id, cc.company_id, cc.contact_id,
+    (ARRAY['Opened', 'Sent', 'Responded', 'Opened', 'Converted', 'Targeted', 'Sent', 'Opened'])
+      [((row_number() OVER (ORDER BY ct.first_name, ct.last_name)) - 1) % 8 + 1],
+    editor_app, editor_app, editor_app
+  FROM public.contact_companies cc
+  JOIN public.companies co ON co.id = cc.company_id
+  JOIN public.contacts ct  ON ct.id = cc.contact_id
+  WHERE cc.is_primary AND cc.deleted_at IS NULL AND co.industry IN ('Med Spa', 'Spa');
+
+  -- Holiday mailer (draft): target list only, nothing sent yet.
+  INSERT INTO public.campaign_members (campaign_id, company_id, status, owner_id, created_by, updated_by)
+  SELECT mailer_id, co.id, 'Targeted', editor_app, editor_app, editor_app
+  FROM public.companies co
+  WHERE co.industry IN ('Nail Salon', 'Lash & Brow', 'Wellness') AND co.deleted_at IS NULL;
+
+  -- Spring SMS: everyone whose primary company is a massage / wellness studio.
+  INSERT INTO public.campaign_members (campaign_id, company_id, contact_id, status, owner_id, created_by, updated_by)
+  SELECT spring_id, cc.company_id, cc.contact_id,
+    (ARRAY['Responded', 'Sent', 'Converted', 'Responded', 'Bounced', 'Converted'])
+      [((row_number() OVER (ORDER BY ct.first_name, ct.last_name)) - 1) % 6 + 1],
+    admin_app, admin_app, admin_app
+  FROM public.contact_companies cc
+  JOIN public.companies co ON co.id = cc.company_id
+  JOIN public.contacts ct  ON ct.id = cc.contact_id
+  WHERE cc.is_primary AND cc.deleted_at IS NULL AND co.industry IN ('Massage', 'Wellness');
+END $$;

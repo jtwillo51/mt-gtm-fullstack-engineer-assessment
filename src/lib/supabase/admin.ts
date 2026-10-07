@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.generated'
 
 /**
  * Service-role client — BYPASSES RLS. Only for webhooks / background jobs /
@@ -9,7 +10,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
  * the audit trigger can't resolve a user without a session.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
+  return createSupabaseClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
